@@ -1,4 +1,4 @@
-import secrets, string, file_tools, sys, os
+import secrets, string, file_tools, sys, os, subprocess
 from argparse import ArgumentParser
 from getpass import getpass
 from secrets import token_hex, token_urlsafe
@@ -16,6 +16,47 @@ def generate_password():
 def password_to_hmac(salt, password):
     m = hmac.new(salt.encode('utf-8'), password.encode('utf-8'), 'SHA256')
     return m.hexdigest()
+
+def downloadAndBuildBitcoinCore(platform="ubuntu"):
+    if platform == "ubuntu":
+
+        print(os.popen("sudo apt-get install build-essential libtool autotools-dev automake pkg-config bsdmainutils python3").read())
+        #main dependencies
+
+        print(os.popen("sudo apt-get install libevent-dev libboost-dev").read()) #compiling dependencies
+
+        print(os.popen("sudo apt-get install libsqlite3-dev").read()) #descriptor wallet only
+
+        print(os.popen("sudo apt-get install libminiupnpc-dev libnatpmp-dev").read()) #port mapping
+
+        print(os.popen("sudo apt-get install libzmq3-dev").read()) # ZMQ API
+
+        print(os.popen("sudo apt-get install systemtap-sdt-dev").read()) # User-Space, Statically Defined Tracing 
+
+        '''
+        Incase we need GUI at any point:
+        GUI dependencies:
+
+        If you want to build bitcoin-qt, make sure that the required packages for Qt development are installed. 
+        Qt 5 is necessary to build the GUI. To build without GUI pass --without-gui.
+
+        To build with Qt 5 you need the following:
+
+        sudo apt-get install qtbase5-dev qttools5-dev qttools5-dev-tools
+        Additionally, to support Wayland protocol for modern desktop environments:
+
+        sudo apt install qtwayland5
+        libqrencode (optional) can be installed with:
+
+        sudo apt-get install libqrencode-dev
+        '''
+        
+        cmd = \
+            "git clone https://github.com/bitcoin/bitcoin.git && cd bitcoin && ./autogen.sh && ./configure && make -j 4"
+        print(os.popen(cmd).read())
+
+    else:
+        print("unsupported platform:", platform)
 
 def generateBitcoinConf(rpcauthpasslength=64):
     def gen():
@@ -50,19 +91,28 @@ def generateBitcoinConf(rpcauthpasslength=64):
                 print("unrecognized option:", yn)
 
 
-
 def createBashAlias(alias="btcregtest"):
     current_directory = os.getcwd()
-    aliasinfo = \
-            "export REGTEST_DIR=\"" + current_directory + "\"\n" + \
-            "alias " + alias + "d -datadir=$REGTEST_DIR\n" + \
-            "alias " + alias + "-cli -datadir=$REGTEST_DIR\n"
+    aliasinfo = (
+        f'export REGTEST_DIR="{current_directory}"\n'
+        f'alias {alias}d="bitcoind -datadir=$REGTEST_DIR"\n'
+        f'alias {alias}-cli="bitcoin-cli -datadir=$REGTEST_DIR"\n'
+    )
     file_path = os.path.expanduser("~/.bash_profile")
+    
     with open(file_path, "a") as file:
         file.write(aliasinfo)
-    os.popen("source ~/.bash_profile").read()
-
-
+    
+    # Reload the .bash_profile in an interactive shell to apply the changes
+    # and check the aliases
+    output = subprocess.run(
+        ["bash", "-i", "-c", "source ~/.bash_profile && alias"],
+        capture_output=True,
+        text=True
+    )
+    print(output.stdout)
+#    print(f"Aliases added to {file_path}. To apply the changes, run:")
+#    print("source ~/.bash_profile")
 
 args = sys.argv
 if __name__ == "__main__":
@@ -71,9 +121,12 @@ if __name__ == "__main__":
             generateBitcoinConf()
         if args[1] == "createBashAlias":
             createBashAlias()
+        if args[1] == "downloadAndBuildBitcoinCore":
+            downloadAndBuildBitcoinCore()
     else:
         print(\
                 "No args provided!\nOptions: \n" + \
                 "generateBitcoinConf - generate bitcoin.conf file\n" + \
-                "createBashAlias - create a specific bash alias shortcut for your regtest daemon and cli" \
+                "createBashAlias - create a specific bash alias shortcut for your regtest daemon and cli\n" + \
+                "downloadAndBuildBitcoinCore - install dependencies, clone bitcoin core, build, specific to platform"
         )
