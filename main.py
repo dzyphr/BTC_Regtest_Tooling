@@ -17,7 +17,7 @@ def password_to_hmac(salt, password):
     m = hmac.new(salt.encode('utf-8'), password.encode('utf-8'), 'SHA256')
     return m.hexdigest()
 
-def downloadAndBuildBitcoinCore(platform="ubuntu"):
+def downloadBuildAndInstallBitcoinCore(platform="ubuntu"):
     if platform == "ubuntu":
 
         print(os.popen("sudo apt-get install build-essential libtool autotools-dev automake pkg-config bsdmainutils python3").read())
@@ -52,7 +52,7 @@ def downloadAndBuildBitcoinCore(platform="ubuntu"):
         '''
         
         cmd = \
-            "git clone https://github.com/bitcoin/bitcoin.git && cd bitcoin && ./autogen.sh && ./configure && make -j 4"
+            "git clone https://github.com/bitcoin/bitcoin.git && cd bitcoin && ./autogen.sh && ./configure && make install -j 4"
         print(os.popen(cmd).read())
 
     else:
@@ -98,6 +98,12 @@ def createBashAlias(alias="btcregtest"):
         f'alias {alias}d="bitcoind -datadir=$REGTEST_DIR"\n'
         f'alias {alias}-cli="bitcoin-cli -datadir=$REGTEST_DIR"\n'
     )
+    file_path = os.path.expanduser("~/.bash_aliases")
+
+    with open(file_path, "a") as file:
+        file.write(aliasinfo)
+    os.popen("chmod +x ~/.bash_aliases").read()
+
     file_path = os.path.expanduser("~/.bash_profile")
     
     with open(file_path, "a") as file:
@@ -121,8 +127,8 @@ if __name__ == "__main__":
             generateBitcoinConf()
         if args[1] == "createBashAlias":
             createBashAlias()
-        if args[1] == "downloadAndBuildBitcoinCore":
-            downloadAndBuildBitcoinCore()
+        if args[1] == "downloadBuildAndInstallBitcoinCore":
+            downloadBuildAndInstallBitcoinCore()
     else:
         print(\
                 "No args provided!\nOptions: \n" + \
