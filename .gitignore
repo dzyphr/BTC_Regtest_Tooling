@@ -3,3 +3,6 @@ bitcoin
 regtest
 bitcoin.conf
 .lock
+go1.22.3.linux-amd64.tar.gz*
+lnd_repo
+lnd*
