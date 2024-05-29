@@ -1,22 +1,24 @@
 #!/bin/bash
 
+
 # Desired number of arguments
 REQUIRED_ARGS=1
 
 # Check the number of arguments
 if [ "$#" -eq "$REQUIRED_ARGS" ]; then
-	continue
+        continue
 else
     # Display usage message
     echo "Usage: $0 yourWalletNameHere"
     exit 1
 fi
 
+
 export REGTEST_DIR=$(pwd)
 walletname=$1
-createWallet(){
+getBalance(){
 	export clipath="$REGTEST_DIR/bitcoin/src/bitcoin-cli"
-	$clipath -datadir="$REGTEST_DIR" createwallet $walletname
+	$clipath -datadir="$REGTEST_DIR" -rpcwallet=$walletname getbalance
 }
 
-createWallet
+getBalance
