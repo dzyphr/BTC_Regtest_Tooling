@@ -20,10 +20,12 @@ Basic Usage:
 9. Check your wallet's balance: `./getBalance.sh <yourWalletNameHere>` 
 10. Download, Build, and Install LND: `./downloadBuildAndInstallLND.sh`
 11. Create a Directory for a lightning node( or multiple ): 
+
 Default Node Example: `./createLightningNodeDirAndConf.sh`
 
 Custom Port Node Example: 
 `./createLightningNodeDirAndConf.sh 9734 11009 8180`
+
 12. Create a LND bash alias: `. ./createBashAlias_lnd.sh <yourLndDirectoryNameHere>` 
 (Ensure to run with `.` before sh file to load bash aliases immediately)
 
