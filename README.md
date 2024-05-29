@@ -1,5 +1,6 @@
 # BTC_Regtest_Tooling
 
+### NOTE: Currently only tested on Ubuntu Linux
 
 Basic Usage:
 1. Generate a config file: `./generateBitcoinConf.sh`
