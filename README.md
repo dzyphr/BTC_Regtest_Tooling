@@ -2,6 +2,11 @@
 
 ### NOTE: Currently only tested on Ubuntu Linux
 
+Regtest + Lightning Test Environment Tooling
+
+Inspired by: https://medium.com/@bitstein/setting-up-a-bitcoin-lightning-network-test-environment-ab967167594a
+Updated for usage with newest Bitcoin client releases.
+
 Basic Usage:
 1. Generate a config file: `./generateBitcoinConf.sh`
 2. Download Build and Install Core: `./downloadBuildAndInstallBitcoinCore.sh`
