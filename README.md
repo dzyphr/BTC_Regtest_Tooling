@@ -11,5 +11,5 @@ Basic Usage:
 6. Load your wallet: `./loadWallet.sh <yourWalletNameHere>`
 7. Generate some blocks with your wallet: `./generate.sh <yourWalletNameHere> <numberOfBlocksToGenerate>`
 8. Generate at least 100 more blocks to make the previous blocks spendable: `./generate.sh <yourWalletNameHere> 101`
-9. Check your wallet's balance: `./getBalance <yourWalletNameHere>` 
+9. Check your wallet's balance: `./getBalance.sh <yourWalletNameHere>` 
 
