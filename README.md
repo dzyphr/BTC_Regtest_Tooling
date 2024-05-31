@@ -28,5 +28,11 @@ Custom Port Node Example:
 
 12. Create a LND bash alias: `. ./createBashAlias_lnd.sh <yourLndDirectoryNameHere>` 
 (Ensure to run with `.` before sh file to load bash aliases immediately)
-
+13. Launch LND: `./launchLND.sh <lndDirName>`
+14. Create a LND wallet: `createLNDWallet.sh <lndDirName>`
+Follow the instructions provided by LND, save the seed phrase if you will ever want to recover the wallet.
+15. (If you already created a LND wallet) Unlock LND: `./unlockLND.sh <lndDirName>` 
+16. Get info about your LND Node: `./getInfoLND.sh <lndDirName>`
+Saves an `identity_pubkey` file in your node directory.
+Needed for connecting nodes to eachother. 
 
