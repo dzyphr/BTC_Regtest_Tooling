@@ -320,33 +320,67 @@ def sha256_hash_string(input_string):
     hex_digest = sha256.hexdigest()
     return hex_digest
 
-def gnome_terminal(cmdstr):
-    tempname = sha256_hash_string(cmdstr) 
-    file_tools.clean_file_open(tempname + ".sh", "w", cmdstr+ "\nexec bash")
-    os.popen("chmod +x " + tempname + ".sh").read()
-    subprocess.run(['gnome-terminal', '--', 'bash', '-i', tempname + ".sh"])
-    time.sleep(2)
-    os.remove(tempname + ".sh")
+def gnome_terminal(cmd):
+    editcmd = f'source ~/.bashrc && {cmd}'
+    subprocess.run(['gnome-terminal', '--', 'bash', '-i', "-c", editcmd])
+
+def currentShellInteractiveBashScriptExecNoReturn(cmd):
+    editcmd = f'source ~/.bashrc && {cmd}'
+    subprocess.run( 
+            ["bash", "-i", "-c", editcmd  ],
+    )
 
 def currentShellInteractiveBashScriptExec(cmd):
-    tempname = sha256_hash_string(cmd)
-    file_tools.clean_file_open(tempname + ".sh", "w", cmd)
-    subprocess.run(['bash', '-i', tempname + ".sh"])
-    time.sleep(2)
-    os.remove(tempname + ".sh")
+    editcmd = f'source ~/.bashrc && {cmd}'
+    output = subprocess.run( 
+            ["bash", "-i", "-c", editcmd  ],
+            capture_output=True,
+            text=True
+    ).stdout
+    return output
+
+def contains_number(s):
+    return any(char.isdigit() for char in s)
 
 def LND(lndDirName, command=""):
+    cliEditDirName = ""
+    listen = ""
+    rpclisten = ""
+    restlisten = ""
+    if contains_number(lndDirName) == False:
+        cliEditDirName = lndDirName.replace("d", "cli")
+    else:
+        cliEditDirName = lndDirName.replace("d", "") + "cli"
+    lndconf = file_tools.clean_file_open(lndDirName + "/lnd.conf", "r")
+    if lndconf.find("Application Options") != -1:
+        listen = get_lndconf_value("Application Options", "listen", lndconf)
+        rpclisten = get_lndconf_value("Application Options", "rpclisten", lndconf)
+        restlisten = get_lndconf_value("Application Options", "restlisten", lndconf)
     if command == "":
         gnome_terminal(lndDirName)
     if command == "create": #create wallet
-        cmd = lndDirName.replace("d", "cli") + " create"
-        currentShellInteractiveBashScriptExec(cmd)
+        cmd = ""
+        if rpclisten != "":
+            cmd = cliEditDirName + " --rpcserver=" + rpclisten + " create"
+        else:
+            cmd = cliEditDirName + " create"
+        currentShellInteractiveBashScriptExecNoReturn(cmd)
     if command == "getinfo":
-        cmd = lndDirName.replace("d", "cli") + " getinfo"
-        currentShellInteractiveBashScriptExec(cmd)
+        cmd = ""
+        if rpclisten != "":
+            cmd = cliEditDirName + " --rpcserver=" + rpclisten +  " getinfo"
+        else:
+            cmd = cliEditDirName +  " getinfo"
+        info = currentShellInteractiveBashScriptExec(cmd)
+        identity_pubkey = json.loads(info)["identity_pubkey"]
+        file_tools.clean_file_open(lndDirName + "/identity_pubkey", "w", identity_pubkey)
     if command == "unlock":
-        cmd = lndDirName.replace("d", "cli") + " unlock"
-        currentShellInteractiveBashScriptExec(cmd)
+        cmd = ""
+        if rpclisten != "":
+            cmd = cliEditDirName + " --rpcserver=" + rpclisten + " unlock"
+        else:
+            cmd = cliEditDirName + " unlock"
+        currentShellInteractiveBashScriptExecNoReturn(cmd)
 
 args = sys.argv
 if __name__ == "__main__":
