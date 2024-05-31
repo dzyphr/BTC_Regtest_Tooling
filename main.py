@@ -1,4 +1,4 @@
-import secrets, string, file_tools, sys, os, subprocess, re, json, hmac
+import secrets, string, file_tools, sys, os, subprocess, re, json, hmac, hashlib, time
 from argparse import ArgumentParser
 from getpass import getpass
 from secrets import token_hex, token_urlsafe
@@ -119,8 +119,10 @@ def generateBitcoinConf(rpcauthpasslength=64):
         username = "regtestuser1" #TODO custom first username and followup users appended to conf
         generated = \
             default + \
-            "rpcauth="\
-            f'{username}:{salt}${password_hmac}'
+            f'rpcauth={username}:{salt}${password_hmac}\n' + \
+            f'rpcuser={username}\n' + \
+            f'rpcpass={salt}${password_hmac}'
+
         file_tools.clean_file_open("bitcoin.conf", "w", generated)
         return True
     if os.path.isfile("bitcoin.conf") == False:
@@ -234,8 +236,33 @@ def createBashAlias(alias="", application="bitcoin"):
         print(output.stdout)
 
 
+def get_bitcoin_conf_value(conf_string, key):
+    # Split the configuration string into lines
+    lines = conf_string.split('\n')
+    
+    # Iterate over each line
+    for line in lines:
+        # Split the line by '=' to get the key-value pair
+        if '=' in line:
+            conf_key, conf_value = line.split('=', 1)
+            # Check if the current key matches the desired key
+            if conf_key.strip() == key:
+                return conf_value.strip()
+    
+    # Return None if the key is not found
+    return None
 
 def createLightningNodeDirAndConf(dirname="", altListenPort="", altRpcListenPort="", altRestListenPort=""):
+    if os.path.isdir("bitcoin") == False: #bitcoin regtest dir not created yet
+        print("must create bitcoin regtest directory first!")
+        return 
+    if os.path.isfile("bitcoin.conf") == False:
+        print("must generate a bitcoin.conf first!")
+    bitcoinconf = file_tools.clean_file_open("bitcoin.conf", "r")
+    rpcauth = get_bitcoin_conf_value(bitcoinconf, "rpcauth" )
+    rpcuser = rpcauth.split(":")[0]
+    rpcpass = rpcauth.split(":")[1]
+
     if dirname == "":
         dirname = "lnd"
         index = 2
@@ -255,8 +282,8 @@ def createLightningNodeDirAndConf(dirname="", altListenPort="", altRpcListenPort
             "bitcoin.node=bitcoind\n" + \
             "[Bitcoind]\n" + \
             "bitcoind.rpchost=localhost\n" + \
-            "bitcoind.rpcuser=lnd\n" + \
-            "bitcoind.rpcpass=lightning\n" + \
+            "bitcoind.rpcuser=" + rpcuser + "\n" + \
+            "bitcoind.rpcpass=" + rpcpass + "\n" + \
             "bitcoind.zmqpubrawblock=tcp://127.0.0.1:28332\n" + \
             "bitcoind.zmqpubrawtx=tcp://127.0.0.1:28333\n"
     appOptionsFormat = \
@@ -287,9 +314,39 @@ def createLightningNodeDirAndConf(dirname="", altListenPort="", altRpcListenPort
     file_tools.clean_mkdir(dirname)
     file_tools.clean_file_open(dirname + "/lnd.conf", "w", Conf)
      
+def sha256_hash_string(input_string):
+    sha256 = hashlib.sha256()
+    sha256.update(input_string.encode('utf-8'))
+    hex_digest = sha256.hexdigest()
+    return hex_digest
 
+def gnome_terminal(cmdstr):
+    tempname = sha256_hash_string(cmdstr) 
+    file_tools.clean_file_open(tempname + ".sh", "w", cmdstr+ "\nexec bash")
+    os.popen("chmod +x " + tempname + ".sh").read()
+    subprocess.run(['gnome-terminal', '--', 'bash', '-i', tempname + ".sh"])
+    time.sleep(2)
+    os.remove(tempname + ".sh")
 
+def currentShellInteractiveBashScriptExec(cmd):
+    tempname = sha256_hash_string(cmd)
+    file_tools.clean_file_open(tempname + ".sh", "w", cmd)
+    subprocess.run(['bash', '-i', tempname + ".sh"])
+    time.sleep(2)
+    os.remove(tempname + ".sh")
 
+def LND(lndDirName, command=""):
+    if command == "":
+        gnome_terminal(lndDirName)
+    if command == "create": #create wallet
+        cmd = lndDirName.replace("d", "cli") + " create"
+        currentShellInteractiveBashScriptExec(cmd)
+    if command == "getinfo":
+        cmd = lndDirName.replace("d", "cli") + " getinfo"
+        currentShellInteractiveBashScriptExec(cmd)
+    if command == "unlock":
+        cmd = lndDirName.replace("d", "cli") + " unlock"
+        currentShellInteractiveBashScriptExec(cmd)
 
 args = sys.argv
 if __name__ == "__main__":
@@ -308,6 +365,14 @@ if __name__ == "__main__":
         if len(args) == 3:
             if args[1] == "createBashAlias_lnd":
                 createBashAlias(alias=args[2], application="lnd")
+            if args[1] == "lnd_getinfo":
+                LND(args[2], command="getinfo")
+            if args[1] == "lnd_unlock":
+                LND(args[2], command="unlock")
+            if args[1] == "createLNDWallet":
+                LND(args[2], command="create")
+            if args[1] == "launch_lnd":
+                LND(args[2]) #must use lnd directory name as followup arg
         if len(args) == 5:
             if args[1] == "createLightningNodeDirAndConf":
                 createLightningNodeDirAndConf(altListenPort=args[2], altRpcListenPort=args[3], altRestListenPort=args[4])
