@@ -420,12 +420,17 @@ if __name__ == "__main__":
         print(\
                 "None or incorrect args provided!\nOptions: \n\n" + \
                 "generateBitcoinConf - generate bitcoin.conf file\n\n" + \
-                "createBashAlias - create a sbash alias shortcut for your regtest daemon and cli\n\n" + \
-                "createBashAlias_lnd [Required Args]: <lndDirectoryName> - create a bash alias shortcut for your lnd node"
+                "createBashAlias - create a bash alias shortcut for your regtest daemon and cli\n\n" + \
+                "createBashAlias_lnd [Required Args]: <lndDirectoryName> - create a bash alias shortcut for your lnd node\n\n"
                 "downloadAndBuildBitcoinCore - install dependencies, clone bitcoin core, build, specific to platform\n\n" + \
-                "downloadBuildAndInstallLND - install go(if not installed already), clone LND, make and install LND"
+                "downloadBuildAndInstallLND - install go(if not installed already), clone LND, make and install LND\n\n"
                 "createLightningNodeDirAndConf [Optional Args]: <altListenPort> <altRpcListenPort> <altRestListenPort> <dirname>\n" + \
                 " - create a directory for a new lightning node and generate it's config\n" + \
-                "(Must specify ALL alt ports if using them. Custom dirname arg requires all alt port usage also)\n"
-
+                "(Must specify ALL alt ports if using them)\n\n" + \
+                "launch_lnd [Required Args]: <lndDirectoryName> - launch a specific LND instance\n\n" + \
+                "createLNDWallet [Required Args]: <lndDirectoryName> - create a LND wallet for your specific LND instance\n\n" + \
+                "lnd_unlock [Required Args]: <lndDirectoryName> - unlock the wallet you created for your specific LND instance\n\n" + \
+                "lnd_getinfo [Required Args]: <lndDirectoryName> - get info about your LND node instance," + \
+                " saves an identity_pubkey file\n\n" 
+                
         )
