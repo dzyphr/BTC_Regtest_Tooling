@@ -34,5 +34,12 @@ Follow the instructions provided by LND, save the seed phrase if you will ever w
 15. (If you already created a LND wallet) Unlock LND: `./unlockLND.sh <lndDirName>` 
 16. Get info about your LND Node: `./getInfoLND.sh <lndDirName>`
 Saves an `identity_pubkey` file in your node directory.
-Needed for connecting nodes to eachother. 
+Needed for connecting nodes to eachother.
+17. Connect your local LND Instances by their Directory name: `./connectLocalLNDDir.sh <lndDirName> <targetLndDirName>` 
+18. Check that your connection worked by checking your node's peers: `./LNDPeers.sh <lndDirName>`
+19. Open a channel between your two LND instances by their directory name: `./openChannelLNDDir.sh <lndDirName> <targetLndDirName> <channelAmount>`
+20. Check the existing channels on the node: `./listChannelsLND.sh <lndDirName>`
+21. Create an invoice: `./invoiceLND.sh <lndDirectoryName> <invoiceAmount>` Will return a `pay_req` string that you can copy
+(If you opened only one channel from lnd to lnd2 for example, create the invoice with lnd2 and pay with lnd.)
+22. Pay the invoice: `./payinvoiceLND.sh <lndDirectoryName> <pay_req>` 
 

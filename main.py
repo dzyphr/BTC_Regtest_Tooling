@@ -1,6 +1,4 @@
-import secrets, string, file_tools, sys, os, subprocess, re, json, hmac, hashlib, time
-from argparse import ArgumentParser
-from getpass import getpass
+import secrets, string, file_tools, sys, os, subprocess, re, json, hmac, hashlib, time, random
 from secrets import token_hex, token_urlsafe
 
 def generate_salt(size):
@@ -252,7 +250,7 @@ def get_bitcoin_conf_value(conf_string, key):
     # Return None if the key is not found
     return None
 
-def createLightningNodeDirAndConf(dirname="", altListenPort="", altRpcListenPort="", altRestListenPort=""):
+def createLightningNodeDirAndConf(altListenPort="", altRpcListenPort="", altRestListenPort=""):
     if os.path.isdir("bitcoin") == False: #bitcoin regtest dir not created yet
         print("must create bitcoin regtest directory first!")
         return 
@@ -263,17 +261,16 @@ def createLightningNodeDirAndConf(dirname="", altListenPort="", altRpcListenPort
     rpcuser = rpcauth.split(":")[0]
     rpcpass = rpcauth.split(":")[1]
 
-    if dirname == "":
-        dirname = "lnd"
-        index = 2
-        if os.path.isdir(dirname) == True:
-            while True:
-                dirname = dirname + str(index)
-                if os.path.isdir(dirname) == False:
-                    break
-                else:
-                    index += 1
-                    dirname = remove_digits(dirname)
+    dirname = "lnd"
+    index = 2
+    if os.path.isdir(dirname) == True:
+        while True:
+            dirname = dirname + str(index)
+            if os.path.isdir(dirname) == False:
+                break
+            else:
+                index += 1
+                dirname = remove_digits(dirname)
         
     Conf = \
             "[Bitcoin]\n" + \
@@ -342,7 +339,8 @@ def currentShellInteractiveBashScriptExec(cmd):
 def contains_number(s):
     return any(char.isdigit() for char in s)
 
-def LND(lndDirName, command=""):
+def LND(lndDirName, command="", targetLndDir="", addrtype="", amount="", pay_req=""):
+    cmd = ""
     cliEditDirName = ""
     listen = ""
     rpclisten = ""
@@ -358,15 +356,13 @@ def LND(lndDirName, command=""):
         restlisten = get_lndconf_value("Application Options", "restlisten", lndconf)
     if command == "":
         gnome_terminal(lndDirName)
-    if command == "create": #create wallet
-        cmd = ""
+    if command == "create": #create wallet for local lnd instance
         if rpclisten != "":
             cmd = cliEditDirName + " --rpcserver=" + rpclisten + " create"
         else:
             cmd = cliEditDirName + " create"
         currentShellInteractiveBashScriptExecNoReturn(cmd)
-    if command == "getinfo":
-        cmd = ""
+    if command == "getinfo": #get info about local lnd instance
         if rpclisten != "":
             cmd = cliEditDirName + " --rpcserver=" + rpclisten +  " getinfo"
         else:
@@ -374,13 +370,160 @@ def LND(lndDirName, command=""):
         info = currentShellInteractiveBashScriptExec(cmd)
         identity_pubkey = json.loads(info)["identity_pubkey"]
         file_tools.clean_file_open(lndDirName + "/identity_pubkey", "w", identity_pubkey)
-    if command == "unlock":
-        cmd = ""
+    if command == "unlock": #unlock local lnd instance
         if rpclisten != "":
             cmd = cliEditDirName + " --rpcserver=" + rpclisten + " unlock"
         else:
             cmd = cliEditDirName + " unlock"
         currentShellInteractiveBashScriptExecNoReturn(cmd)
+    if command == "connect_localDir": #connect two local instances by providing only their directory names
+        if targetLndDir == "":
+            print("must provide targetLndDir")
+            return
+        if os.path.isdir(targetLndDir) == False:
+            print("lnd dir not found! dir:", targetLndDir)
+            return
+        if os.path.isfile(targetLndDir + "/identity_pubkey") == False:
+            print("target lnd dir identity_pubkey not found, run getinfo on this lnd instance first!")
+            return
+        identity_pubkey = file_tools.clean_file_open(targetLndDir + "/identity_pubkey", "r")
+        lndconf = file_tools.clean_file_open(targetLndDir + "/lnd.conf", "r")
+        targetlisten = ""
+        if lndconf.find("Application Options") != -1:
+            targetlisten = get_lndconf_value("Application Options", "listen", lndconf)
+        else:
+            targetlisten = "0.0.0.0:9735" #default
+        connectobject = f'{identity_pubkey}@{targetlisten}'
+        if rpclisten != "":
+            cmd = cliEditDirName + " --rpcserver=" + rpclisten +  " connect "  + connectobject
+        else:
+            cmd = cliEditDirName +  " connect " + connectobject
+        info = currentShellInteractiveBashScriptExec(cmd)
+        print(info)
+    if command == "peers": #check the peers list for a local lnd instance
+        if rpclisten != "":
+            cmd = cliEditDirName + " --rpcserver=" + rpclisten + " listpeers"
+        else:
+            cmd = cliEditDirName + " listpeers"
+        print(currentShellInteractiveBashScriptExec(cmd))
+    if command == "newaddr":
+        if addrtype == "":
+            print("must provide addrtype!")
+            return
+        if addrtype not in["np2wkh"]:
+            print("unhandled  addrtype: " + addrtype + " !")
+            return
+        if rpclisten != "":
+            cmd = cliEditDirName + " --rpcserver=" + rpclisten + " newaddress " + addrtype
+        else:
+            cmd = cliEditDirName + " newaddress " + addrtype
+        addrobj = currentShellInteractiveBashScriptExec(cmd)
+        addr = json.loads(addrobj)["address"]
+        np2wkh_addrs = ""
+        np2wkh_addrs_obj = {}
+        if os.path.isfile(lndDirName + "/np2wkh_addrs.json") == True:
+            np2wkh_addrs = file_tools.clean_file_open(lndDirName + "/np2wkh_addrs.json", "r")
+            np2wkh_addrs_obj = json.loads(np2wkh_addrs)
+            index = len(np2wkh_addrs_obj)
+            np2wkh_addrs_obj[index] = addr
+            file_tools.clean_file_open(lndDirName + "/np2wkh_addrs.json", "w", json.dumps(np2wkh_addrs_obj, indent=2))
+        else:
+            np2wkh_addrs_obj[0] = addr
+            file_tools.clean_file_open(lndDirName + "/np2wkh_addrs.json", "w", json.dumps(np2wkh_addrs_obj, indent=2))
+        print(addr)
+    if command == "openchannel_lnddir":
+        if os.path.isdir(lndDirName) == False:
+            print("lnd dir:", lndDirName, "not found!")
+            return
+        if targetLndDir == "":
+            print("must provide target lnd dir name")
+            return
+        if os.path.isfile(targetLndDir + "/identity_pubkey") == False:
+            print("target lnd dir identity_pubkey not found! run getinfo on it first")
+            return
+        if amount == "":
+            print("must provide amount")
+            return
+        targetLNDDir_identity_pubkey = file_tools.clean_file_open(targetLndDir + "/identity_pubkey", "r")
+        if rpclisten != "":
+            cmd = cliEditDirName + " --rpcserver=" + rpclisten + " openchannel " + targetLNDDir_identity_pubkey + " " + amount
+        else:
+            cmd = cliEditDirName + " openchannel " + targetLNDDir_identity_pubkey + " " + amount
+        print(currentShellInteractiveBashScriptExec(cmd))
+    if command == "listchannels":
+        if rpclisten != "":
+            cmd = cliEditDirName + " --rpcserver=" + rpclisten + " listchannels"
+        else:
+            cmd = cliEditDirName + " listchannels"
+        print(currentShellInteractiveBashScriptExec(cmd))
+    if command == "invoice":
+        if amount == "":
+            print("must provide amount")
+            return
+        if rpclisten != "":
+            cmd = cliEditDirName + " --rpcserver=" + rpclisten + " addinvoice -amt " + amount
+        else:
+            cmd = cliEditDirName + " addinvoice -amt " + amount
+        print(currentShellInteractiveBashScriptExec(cmd))
+    if command == "decode_payreq":
+        if pay_req == "":
+            print("provide payreq!")
+            return
+        if rpclisten != "":
+            cmd = cliEditDirName + " --rpcserver=" + rpclisten + " decodepayreq " + pay_req
+        else:
+            cmd = cliEditDirName + " decodepayreq " + pay_req
+        print(currentShellInteractiveBashScriptExec(cmd))
+    if command == "payinvoice":
+        if pay_req == "":
+            print("provide payreq!")
+            return
+        if rpclisten != "":
+            cmd = cliEditDirName + " --rpcserver=" + rpclisten + " payinvoice " + pay_req
+        else:
+            cmd = cliEditDirName + " payinvoice " + pay_req
+        print(currentShellInteractiveBashScriptExecNoReturn(cmd))
+    if command == "listinvoices":
+        if rpclisten != "":
+            cmd = cliEditDirName + " --rpcserver=" + rpclisten + " listinvoices"
+        else:
+            cmd = cliEditDirName + " listinvoices"
+        print(currentShellInteractiveBashScriptExec(cmd))
+    if command == "listpayments":
+        if rpclisten != "":
+            cmd = cliEditDirName + " --rpcserver=" + rpclisten + " listpayments"
+        else:
+            cmd = cliEditDirName + " listpayments"
+        print(currentShellInteractiveBashScriptExec(cmd))
+
+        
+
+def regtestCLI(command="", targetLNDDir="", amount="", rpcwallet=""):
+    if command == "sendToLNDDir":
+        if targetLNDDir == "":
+            print("must provide target lnd dir!")
+            return
+        if os.path.isdir(targetLNDDir) == False:
+            print("target lnd dir:", targetLNDDir, " not found!")
+            return
+        if os.path.isfile(targetLNDDir + "/np2wkh_addrs.json") == False:
+            print(targetLNDDir + "/np2wkh_addrs.json file not found! call lnd_new_np2wkh_addr on this lnd dir first!")
+            return
+        if amount == "":
+            print("provide amount!")
+            return
+        if rpcwallet == "":
+            print("provide rpcwallet!")
+            return
+        obj = json.loads(file_tools.clean_file_open(targetLNDDir + "/np2wkh_addrs.json", "r"))
+        keys = list(obj.keys())
+        randomkey = random.choice(keys)
+        randomaddr = obj[randomkey]
+        cmd = \
+                "./sendToAddress.sh " + rpcwallet + " " + randomaddr + " " + amount
+        print(currentShellInteractiveBashScriptExec(cmd))
+
+
 
 args = sys.argv
 if __name__ == "__main__":
@@ -399,6 +542,10 @@ if __name__ == "__main__":
         if len(args) == 3:
             if args[1] == "createBashAlias_lnd":
                 createBashAlias(alias=args[2], application="lnd")
+            if args[1] == "lndPeers":
+                LND(args[2], command="peers")
+            if args[1] == "lndChannels":
+                LND(args[2], command="listchannels")
             if args[1] == "lnd_getinfo":
                 LND(args[2], command="getinfo")
             if args[1] == "lnd_unlock":
@@ -407,7 +554,26 @@ if __name__ == "__main__":
                 LND(args[2], command="create")
             if args[1] == "launch_lnd":
                 LND(args[2]) #must use lnd directory name as followup arg
+            if args[1] == "lnd_new_np2wkh_addr":
+                LND(args[2], command="newaddr", addrtype="np2wkh")
+            if args[1] == "listinvoicesLND":
+                LND(args[2], command="listinvoices")
+            if args[1] == "listpaymentsLND":
+                LND(args[2], command="listpayments")
+        if len(args) == 4:
+            if args[1] == "decode_payreqLND":
+                LND(args[2], command="decode_payreq", pay_req=args[3])
+            if args[1] == "invoiceLND":
+                LND(args[2], command="invoice", amount=args[3])
+            if args[1] == "payinvoiceLND":
+                LND(args[2], command="payinvoice", pay_req=args[3])
+            if args[1] == "connect_localDir_lnd":
+                LND(args[2], command="connect_localDir", targetLndDir=args[3])
         if len(args) == 5:
+            if args[1] == "openchannel_lnddir":
+                LND(args[2], command="openchannel_lnddir", targetLndDir=args[3], amount=args[4])
+            if args[1] == "sendToLNDDir":
+                regtestCLI(command="sendToLNDDir", rpcwallet=args[2], targetLNDDir=args[3], amount=args[4])
             if args[1] == "createLightningNodeDirAndConf":
                 createLightningNodeDirAndConf(altListenPort=args[2], altRpcListenPort=args[3], altRestListenPort=args[4])
         if len(args) == 6:
@@ -424,7 +590,7 @@ if __name__ == "__main__":
                 "createBashAlias_lnd [Required Args]: <lndDirectoryName> - create a bash alias shortcut for your lnd node\n\n"
                 "downloadAndBuildBitcoinCore - install dependencies, clone bitcoin core, build, specific to platform\n\n" + \
                 "downloadBuildAndInstallLND - install go(if not installed already), clone LND, make and install LND\n\n"
-                "createLightningNodeDirAndConf [Optional Args]: <altListenPort> <altRpcListenPort> <altRestListenPort> <dirname>\n" + \
+                "createLightningNodeDirAndConf [Optional Args]: <altListenPort> <altRpcListenPort> <altRestListenPort> \n" + \
                 " - create a directory for a new lightning node and generate it's config\n" + \
                 "(Must specify ALL alt ports if using them)\n\n" + \
                 "launch_lnd [Required Args]: <lndDirectoryName> - launch a specific LND instance\n\n" + \
@@ -432,5 +598,20 @@ if __name__ == "__main__":
                 "lnd_unlock [Required Args]: <lndDirectoryName> - unlock the wallet you created for your specific LND instance\n\n" + \
                 "lnd_getinfo [Required Args]: <lndDirectoryName> - get info about your LND node instance," + \
                 " saves an identity_pubkey file\n\n" 
-                
+                "connect_localDir_lnd: [Required Args]: <lndDirectoryName> <targetLndDirectoryName> " + \
+                " - connect two local lnd instances as peers by their directory names\n\n"               
+                "lndPeers [Required Args]: <lndDirectoryName> - list the peers connected to the lnd instance given if any\n\n" + \
+                "lndChannels [Required Args]: <lndDirectoryName> - list all the channels of the lnd instance given if any\n\n"
+                "lnd_new_np2wkh_addr [Required Args]: <lndDirectoryName> - load a new address for a specific lightning instance" + \
+                        "\nbuilds a np2wkh_addrs.json file in relevant lnd directory\n\n"
+                "sendToLNDDir [Required Args]: <walletNameToSendFrom> <targetLndDirectoryName> <amountToSend> " + \
+                        " - send regtest bitcoin to an address belonging to the target LND Directory / Instance\n\n" + \
+                "openchannel_lnddir [Required Args]: <lndDirectoryName> <targetLndDirectoryName> <channelSatAmount>" + \
+                " - open a lightning channel between two local lnd directory instances\n\n" + \
+                "invoiceLND [Required Args]: <lndDirectoryName> <invoiceAmount>"  + \
+                " - create a Lightning invoice for amount specified\n\n" + \
+                "decode_payreqLND [Required Args]: <lndDirectoryName> <pay_req> - decode a payment request\n\n"
+                "listinvoicesLND[Required Args]: <lndDirectoryName> - list invoices generated by specific lnd instance\n\n" + \
+                "listpaymentsLND  [Required Args]: <lndDirectoryName> - list payments made by specific lnd instance"
+
         )
